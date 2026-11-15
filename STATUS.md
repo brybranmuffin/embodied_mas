@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (everything moved to scratch; Phases 0, 1 and the Phase 2 serving check pass there; Phase 3 waits on the resolver decision)
+Last updated: 2026-11-15 (Phase 3 first end-to-end run passes; 20-task reproduction run submitted)
 
 ## Where everything is
 
@@ -66,11 +66,34 @@ What it took (attempt log):
    The prebuilt package `flashinfer-cubin` has no release matching the installed `flashinfer-python 0.7.2.post1`.
 2. Fix: `export VLLM_USE_FLASHINFER_SAMPLER=0` (vLLM's built-in PyTorch sampler). Required in every job that starts vLLM.
 
-Not done yet in Phase 2: the resolver and embedding setup, which depends on open question 1.
+### Phase 3 — first end-to-end run: PASS (job 8859836, 2 GPUs, 11 min 5 s total)
+
+Settings: `data/examples/parallel_5.json`, 2 agents, `base`, 30 rounds, 5 simulators, Qwen3-VL-8B for agents **and resolver**,
+embedding filter off, no OpenAI calls. Script: `jobs/run_eval.sbatch` (all settings are environment variables).
+
+| Case | Success | Completion | Rounds used | Tokens (agents + resolver) |
+|---|---|---|---|---|
+| 0 | yes | 2/2 | 4 | 42,786 |
+| 1 | no | 3/4 | 30 (ran out) | 428,828 |
+| 2 | yes | 5/5 | 22 | 311,196 |
+| 3 | yes | 3/3 | 30 | 360,727 |
+| 4 | no | 3/5 | 30 (ran out) | 501,188 |
+
+- 3 of 5 succeeded, mean completion 87%, all five `result.json` files have `error: null`.
+- Logs read for case 2: agents explore rooms, grab items and place them on the coffee table, and tell each other what they did. Behaviour is sensible.
+- Timing: simulators ready in 12 s, vLLM in 107 s, the 5 episodes took 552 s running in parallel (about 9 minutes for a 30-round, 2-agent episode).
+- GPU memory: vLLM 73 GB on GPU 0; 5 simulators 8.8 GB together on GPU 1 (about 1.7 GB each).
+- Disk: 143 MB for 5 episodes (step images dominate), so about 30 MB per episode.
+- `steps` in `result.json` reads 31 when a 30-round run hits the limit.
+- Results: `<SHARED_ROOT>/results/phase3_examples/job_8859836/`. Step images are in each `case_N/img/`
+  (`raw_img_combined_<agent>_<round>.png` is that agent's four-direction view).
+- `sbatch --export=VAR=a,b,c` breaks on comma lists. Set variables in the shell before `sbatch` instead:
+  `VWAH_TASK_ID_LIST=0,5,10 sbatch jobs/run_eval.sbatch`.
 
 ## In progress
 
-Nothing is running. No jobs are queued.
+- Job 8863394 (`phase3_repro20`): 20 tasks from the full `parallel.json` (indices 0, 5, ..., 95), same settings, 10 simulators,
+  90-minute limit. To compare with the paper's 0.458 success rate for this model with 2 agents.
 
 ## Findings worth knowing
 
@@ -97,18 +120,17 @@ Nothing is running. No jobs are queued.
 | 2026-11-15 | Slurm account for jobs: `e32706` | Bryant |
 | 2026-11-15 | Shared root: first `/projects/e32706/embodied_mas`, then changed to scratch (`/scratch/rsr7518/embodied_mas_data`) | Bryant |
 | 2026-11-15 | All Phase 0 downloads approved (code, envs, simulator, tasks, 8B weights) | Bryant |
+| 2026-11-15 | Resolver: local Qwen model (same 8B model as the agents); embedding filter off; no OpenAI API | Bryant |
 | 2026-11-15 | Git remote: `github.com/brybranmuffin/embodied_mas` | Bryant |
 
 ## Open questions for the humans
 
-1. **Resolver and embeddings:** OpenAI API (matches the paper, costs money, needs internet from compute nodes) or local Qwen resolver (free, results will not match the paper exactly)? **This now blocks Phase 3.**
-2. **NetIDs** of the other two accounts, and whether both are members of `e32706`.
-3. **MECoBench changes:** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
-4. **Who to contact when blocked.**
+1. **NetIDs** of the other two accounts, and whether both are members of `e32706`.
+2. **MECoBench changes:** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
+3. **Who to contact when blocked.**
 
 ## Next steps
 
-1. Get the resolver decision (open question 1).
-2. Phase 3: first end-to-end run on `data/examples/parallel_5.json` with 2 agents, `base`, 30 rounds;
-   then about 20 cases of `parallel.json` to compare with the paper's 0.458.
-3. Phase 4 patches (seed, teams of 7 and 9) in the shared MECoBench clone. Deadline for the 7/9 decision: Nov 18.
+1. Read the 20-task result and report the success rate next to the paper's 0.458, with the setup differences (local resolver, no embedding filter).
+2. Phase 4 patches (seed, teams of 7 and 9) in the MECoBench clone. Deadline for the 7/9 decision: Nov 18.
+3. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the results path layout).
