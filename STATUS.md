@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phases 0-3 pass; next is Phase 4 patches)
+Last updated: 2026-11-15 (Phases 0-4 pass; next is Phase 5 job template and Phase 6 pilot)
 
 ## Where everything is
 
@@ -8,7 +8,7 @@ Last updated: 2026-11-15 (Phases 0-3 pass; next is Phase 4 patches)
 |---|---|
 | This repo (pipeline, status, handoff) | `/scratch/rsr7518/embodied_mas`, remote `github.com/brybranmuffin/embodied_mas` |
 | `<SHARED_ROOT>` | `/scratch/rsr7518/embodied_mas_data` (readable by `rsr7518` only; see Findings) |
-| MECoBench clone | `<SHARED_ROOT>/MECoBench`, upstream commit `219d429`, no local changes yet |
+| MECoBench clone | `<SHARED_ROOT>/MECoBench`, branch `quest-scaling` = upstream `219d429` + 2 local commits (not pushed anywhere) |
 | MECoBench env (Python 3.10) | `<SHARED_ROOT>/envs/mecobench` |
 | vLLM env (Python 3.12) | `<SHARED_ROOT>/envs/vllm` (vLLM 0.33.0, torch 2.14.0, 8.3 GB; pinned `vllm==0.33.0`) |
 | Xvfb (our own copy; Quest has none) | `<SHARED_ROOT>/envs/xvfb` |
@@ -101,6 +101,27 @@ embedding filter off, no OpenAI calls. Script: `jobs/run_eval.sbatch` (all setti
 - GPU memory: 10 simulators used 18 GB on GPU 1.
 - Results: `<SHARED_ROOT>/results/phase3_repro20/job_8863394/`.
 
+### Phase 4 — code patches: PASS (branch `quest-scaling` in the MECoBench clone, 2 commits on top of `219d429`)
+
+1. `dd3620c` **Seed:** `VWAH_SEED` sets the base seed (default 123, so behaviour without it is unchanged).
+2. `4beb790` **Teams of up to 9:** agents 5-8 added to `profile_sample.json` (same Male10/Male6 character models the file
+   already used; other models were not tried); starting rooms are reused in order when a task lists fewer rooms than
+   the team has agents; and requesting more agents than the profile defines is now an error (it used to silently run with 5).
+
+Tests (3 tasks: indices 0, 45, 90; `base`; `VWAH_STEPS_THRESHOLD=5`):
+
+| Team | Job | Agents acting every round | Errors | Episode wall time (3 in parallel) | Mean tokens per episode |
+|---|---|---|---|---|---|
+| 7 | 8864491 | 7 of 7 | none | 418 s | 238k |
+| 9 | 8864492 | 9 of 9 | none | 353 s | 333k |
+
+**The 7/9-agent decision (due Nov 18): teams of 7 and 9 work.**
+
+**Round-limit off-by-one (affects the budget definitions in HANDOFF section 5):** `Game.run` stops when `steps > VWAH_STEPS_THRESHOLD`,
+counting from 0, so a threshold of T allows **T + 1 rounds**. The Phase 3 runs with threshold 30 allowed 31 rounds.
+For exactly 60 agent-actions, set the threshold to `60 / n - 1`. Not patched; the humans should decide whether to
+match the paper's behaviour or the handoff's arithmetic.
+
 ## In progress
 
 Nothing is running. No jobs are queued.
@@ -141,6 +162,7 @@ Nothing is running. No jobs are queued.
 
 ## Next steps
 
-1. Phase 4 patches (seed, teams of 7 and 9) in the MECoBench clone. Deadline for the 7/9 decision: Nov 18.
+1. Humans: decide the round-limit question above, and where the shared copy lives for the other two accounts.
 2. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the results path layout).
-3. Phase 6: task subset, pilot timing, manifest.
+3. Phase 6: 24-task subset, pilot timing (including Qwen3-VL-32B, not yet downloaded or tested), manifest in three shards.
+4. Phase 7: `analysis/collect.py`.
