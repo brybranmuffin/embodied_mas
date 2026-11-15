@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phases 0 and 1 pass; Phase 2 serving test submitted)
+Last updated: 2026-11-15 (Phases 0, 1 and the Phase 2 serving check pass; Phase 3 waits on the resolver decision)
 
 ## Where everything is
 
@@ -48,9 +48,28 @@ What it took (attempt log):
 3. The NVIDIA Vulkan ICD file exists but is named `/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json`,
    not `nvidia_icd.json` as `src/start_unity_multi_8gpu.sh` assumes. Always set `VK_ICD_FILENAMES` ourselves.
 
+### Phase 2 — model serving check: PASS (job 8855509, node `qgpu3014`, H100 80 GB)
+
+- vLLM 0.33.0 served `Qwen/Qwen3-VL-8B-Instruct` as `qwen-8b-vl` from the shared cache with no internet (`HF_HUB_OFFLINE=1`).
+- Ready 240 s after launch (model load about 30 s, the rest is one-time compilation and warm-up).
+- One image chat completion, with the same sampling settings as `models.json`, took 1.2 s
+  (326 prompt + 47 completion tokens) and correctly described the Phase 1 kitchen image.
+- vLLM held 71 GB of the 80 GB GPU (`--gpu-memory-utilization 0.90`), so **vLLM and simulators cannot share one GPU
+  at that setting**. Either keep the handoff's 2-GPU layout or lower the setting (weights need only 16.5 GB).
+- Run it again with `sbatch jobs/phase2_serve_smoke.sbatch` (30 minutes, 1 GPU).
+
+What it took (attempt log):
+
+1. Job 8854415 failed after 4 min 48 s: vLLM's FlashInfer sampler tried to compile CUDA code at startup
+   and died with `FileNotFoundError: 'ninja'` (Quest nodes have no `nvcc`/`ninja` on PATH).
+   The prebuilt package `flashinfer-cubin` has no release matching the installed `flashinfer-python 0.7.2.post1`.
+2. Fix: `export VLLM_USE_FLASHINFER_SAMPLER=0` (vLLM's built-in PyTorch sampler). Required in every job that starts vLLM.
+
+Not done yet in Phase 2: the resolver and embedding setup, which depends on open question 1.
+
 ## In progress
 
-- Phase 2 serving test, job 8854415 (`jobs/phase2_serve_smoke.sbatch`, 30 minutes, 1 GPU): serve the 8B model with vLLM and send one image chat completion.
+Nothing is running. No jobs are queued.
 
 ## Findings worth knowing
 
@@ -76,13 +95,14 @@ What it took (attempt log):
 
 ## Open questions for the humans
 
-1. **Resolver and embeddings:** OpenAI API (matches the paper, costs money, needs internet from compute nodes) or local Qwen resolver (free, results will not match the paper exactly)? Needed before Phase 2.
+1. **Resolver and embeddings:** OpenAI API (matches the paper, costs money, needs internet from compute nodes) or local Qwen resolver (free, results will not match the paper exactly)? **This now blocks Phase 3.**
 2. **NetIDs** of the other two accounts, and whether both are members of `e32706`.
 3. **MECoBench changes:** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
 4. **Who to contact when blocked.**
 
 ## Next steps
 
-1. Read the Phase 2 result; fix vLLM flags if serving failed.
-2. Get the resolver decision (open question 1), then Phase 3: first end-to-end run on `data/examples/parallel_5.json` with 2 agents.
-3. Phase 4 patches (seed, teams of 7 and 9) in the shared MECoBench clone.
+1. Get the resolver decision (open question 1).
+2. Phase 3: first end-to-end run on `data/examples/parallel_5.json` with 2 agents, `base`, 30 rounds;
+   then about 20 cases of `parallel.json` to compare with the paper's 0.458.
+3. Phase 4 patches (seed, teams of 7 and 9) in the shared MECoBench clone. Deadline for the 7/9 decision: Nov 18.

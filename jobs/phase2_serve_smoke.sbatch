@@ -23,6 +23,9 @@ mkdir -p "$OUT"
 
 export HF_HOME=$ROOT/hf_cache
 export HF_HUB_OFFLINE=1          # weights are already in the shared cache
+# vLLM 0.33's FlashInfer sampler compiles CUDA code at startup (needs nvcc and ninja, which Quest
+# nodes do not have on PATH) and crashes. Use the built-in PyTorch sampler instead.
+export VLLM_USE_FLASHINFER_SAMPLER=0
 MODEL=Qwen/Qwen3-VL-8B-Instruct
 SERVED=qwen-8b-vl
 VLLM_PORT=$((40000 + SLURM_JOB_ID % 20000))   # separate range from simulator ports (20000-39999)
