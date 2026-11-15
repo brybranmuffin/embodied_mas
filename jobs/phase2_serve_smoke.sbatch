@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
 #SBATCH --time=00:30:00
-#SBATCH --output=/projects/e32706/embodied_mas/results/phase2/slurm-%j.out
+#SBATCH --output=/scratch/rsr7518/embodied_mas_data/results/phase2/slurm-%j.out
 
 # Phase 2 model-serving smoke test (HANDOFF.md section 7).
 # Serves Qwen3-VL-8B with vLLM, waits until it is ready, and sends one image chat completion.
@@ -16,7 +16,7 @@
 set -uo pipefail
 umask 007
 
-ROOT=/projects/e32706/embodied_mas
+ROOT=/scratch/rsr7518/embodied_mas_data
 REPO_JOBS=${REPO_JOBS:-$SLURM_SUBMIT_DIR}
 OUT=$ROOT/results/phase2/job_$SLURM_JOB_ID
 mkdir -p "$OUT"

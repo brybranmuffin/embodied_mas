@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=24G
 #SBATCH --time=00:20:00
-#SBATCH --output=/projects/e32706/embodied_mas/results/phase1/slurm-%j.out
+#SBATCH --output=/scratch/rsr7518/embodied_mas_data/results/phase1/slurm-%j.out
 
 # Phase 1 rendering smoke test (HANDOFF.md section 7).
 # Records what the GPU node provides, starts Xvfb and one simulator, and saves one camera image.
@@ -17,7 +17,7 @@
 set -uo pipefail
 umask 007
 
-ROOT=/projects/e32706/embodied_mas
+ROOT=/scratch/rsr7518/embodied_mas_data
 REPO_JOBS=${REPO_JOBS:-$SLURM_SUBMIT_DIR}
 OUT=$ROOT/results/phase1/job_$SLURM_JOB_ID
 mkdir -p "$OUT"

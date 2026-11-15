@@ -1,22 +1,23 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phases 0, 1 and the Phase 2 serving check pass; Phase 3 waits on the resolver decision)
+Last updated: 2026-11-15 (everything moved to scratch; Phases 0, 1 and the Phase 2 serving check pass there; Phase 3 waits on the resolver decision)
 
 ## Where everything is
 
 | Thing | Path |
 |---|---|
 | This repo (pipeline, status, handoff) | `/scratch/rsr7518/embodied_mas`, remote `github.com/brybranmuffin/embodied_mas` |
-| `<SHARED_ROOT>` | `/projects/e32706/embodied_mas` (group `e32706`, mode 2770) |
+| `<SHARED_ROOT>` | `/scratch/rsr7518/embodied_mas_data` (readable by `rsr7518` only; see Findings) |
 | MECoBench clone | `<SHARED_ROOT>/MECoBench`, upstream commit `219d429`, no local changes yet |
 | MECoBench env (Python 3.10) | `<SHARED_ROOT>/envs/mecobench` |
-| vLLM env (Python 3.12) | `<SHARED_ROOT>/envs/vllm` (vLLM 0.33.0, torch 2.14.0, 8.3 GB) |
+| vLLM env (Python 3.12) | `<SHARED_ROOT>/envs/vllm` (vLLM 0.33.0, torch 2.14.0, 8.3 GB; pinned `vllm==0.33.0`) |
 | Xvfb (our own copy; Quest has none) | `<SHARED_ROOT>/envs/xvfb` |
 | Simulator binary (`MECOBENCH_SIMULATOR_BIN`) | `<SHARED_ROOT>/simulator/linux_simulator/linux.x86_64` |
 | Full task file | `<SHARED_ROOT>/MECoBench/data/task/parallel.json` |
 | Model cache (`HF_HOME`) | `<SHARED_ROOT>/hf_cache` (`Qwen/Qwen3-VL-8B-Instruct`, 17 GB) |
 | `<RESULTS_ROOT>` (proposed) | `<SHARED_ROOT>/results` |
-| Install logs and the simulator zip | `<SHARED_ROOT>/downloads` |
+| Simulator zip and the CentOS OpenSSL package | `<SHARED_ROOT>/downloads` |
+| Environment build logs | `<SHARED_ROOT>/logs` |
 
 ## Done
 
@@ -74,8 +75,13 @@ Nothing is running. No jobs are queued.
 ## Findings worth knowing
 
 - **`parallel.json` has 96 tasks, all `level` 1, all with 5 `init_rooms` entries.** The Phase 6 plan to spread the 24-task subset across `level` cannot apply; the spread has to come from `goal_item_total`, `goal_item_kind_count` and goal rooms.
-- **The shared root is open to all of `e32706`** (about 20 users), not only our three accounts. Nothing narrower is possible with Quest group permissions there.
-- `/projects/e32706` was at 1736 / 2048 GB (84%) before we started; we share that quota with the rest of the allocation.
+- **Moved from project space to scratch on 2026-11-15 (Bryant's decision).** Data was copied; the three conda envs were rebuilt
+  (conda envs break when moved); both smoke tests were rerun from scratch and pass (jobs 8858952 and 8858953);
+  then `/projects/e32706/embodied_mas` was deleted. Job numbers in the Phase 1 and 2 sections below refer to the first runs in project space.
+- **Teammates cannot read `/scratch/rsr7518`** (owner-only, group `p32859`, which `rsr7518` is not in). Phase 5 ("runs from all three accounts") needs a shared location or one copy per teammate.
+- **Scratch is not permanent.** Quest deletes scratch files that go unused (check the current policy); copy results worth keeping elsewhere.
+- `/projects/e32706` is nearly full (1864 / 2048 GB, 91%, on 2026-11-15) and shared with about 20 users; one reason not to use it.
+- If `mamba create` says a common package "does not exist", the conda index cache is stale: run `mamba clean --index-cache -y` and retry.
 - Slurm lists a second account, `p53299`, for `rsr7518`, but it has no project folder and `checkproject` says it does not exist. Not used.
 - **Compute nodes have outbound internet:** from a GPU node, `huggingface.co` and `github.com` return 200 and `api.openai.com` answers (HTTP 421 to a bare request, so the host is reachable). The OpenAI resolver option is technically possible.
 - GPU nodes report NVIDIA driver 610.43.02 (the handoff says 570.86.15).
@@ -89,7 +95,7 @@ Nothing is running. No jobs are queued.
 | Date | Decision | By |
 |---|---|---|
 | 2026-11-15 | Slurm account for jobs: `e32706` | Bryant |
-| 2026-11-15 | Shared root: `/projects/e32706/embodied_mas` | Bryant |
+| 2026-11-15 | Shared root: first `/projects/e32706/embodied_mas`, then changed to scratch (`/scratch/rsr7518/embodied_mas_data`) | Bryant |
 | 2026-11-15 | All Phase 0 downloads approved (code, envs, simulator, tasks, 8B weights) | Bryant |
 | 2026-11-15 | Git remote: `github.com/brybranmuffin/embodied_mas` | Bryant |
 
