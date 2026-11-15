@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phases 0-4 pass; next is Phase 5 job template and Phase 6 pilot)
+Last updated: 2026-11-15 (Phases 0-4 pass, including teams of 7 and 9; next is the Phase 5 job template)
 
 ## Where everything is
 
@@ -122,6 +122,22 @@ counting from 0, so a threshold of T allows **T + 1 rounds**. The Phase 3 runs w
 For exactly 60 agent-actions, set the threshold to `60 / n - 1`. Not patched; the humans should decide whether to
 match the paper's behaviour or the handoff's arithmetic.
 
+### Phase 4 — code patches: PASS (MECoBench branch `quest-scaling`)
+
+| Commit | Change |
+|---|---|
+| `dd3620c` | `VWAH_SEED` sets the base seed (default 123, so behaviour is unchanged without it). Each case still uses seed + case index. |
+| `4beb790` | Teams up to 9: agents 5-8 added to `profile_sample.json`; starting rooms are reused in order when a task lists fewer than the team size; an error is raised if more agents are requested than the profile defines. |
+
+- **Teams of 7 and 9 work.** Jobs 8864491 (7 agents) and 8864492 (9 agents): tasks 0, 45 and 90, 5 rounds, `base`.
+  All 7 and all 9 agents spawned and acted in every round, no errors, and they made real progress
+  (mean goal completion 69% and 77% within 5 rounds).
+- **Before the patch, asking for more than 5 agents did not fail: it silently ran 5.** Any earlier result labelled n > 5 from unpatched code would be wrong.
+- The new agents reuse the two character models the file already used (`Chars/Male10`, `Chars/Male6`), not new models as the handoff
+  suggested, because other models are not confirmed to exist in this simulator build. Looks do not affect the task.
+- Timing for the pilot estimate: 3 parallel episodes of 5 rounds took 418 s with 7 agents and 353 s with 9, so roughly 70-85 s per team round at that load.
+- Prompts and task files are untouched.
+
 ## In progress
 
 Nothing is running. No jobs are queued.
@@ -157,12 +173,12 @@ Nothing is running. No jobs are queued.
 ## Open questions for the humans
 
 1. **NetIDs** of the other two accounts, and whether both are members of `e32706`.
-2. **MECoBench changes:** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
+2. **MECoBench changes (now exist, branch `quest-scaling`):** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
 3. **Who to contact when blocked.**
 
 ## Next steps
 
-1. Humans: decide the round-limit question above, and where the shared copy lives for the other two accounts.
-2. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the results path layout).
-3. Phase 6: 24-task subset, pilot timing (including Qwen3-VL-32B, not yet downloaded or tested), manifest in three shards.
-4. Phase 7: `analysis/collect.py`.
+1. Humans: confirm team sizes 7 and 9 are in the grid now that they work.
+2. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the
+   `<RESULTS_ROOT>/<model>/<budget>/<mode>/n<N>/seed<S>` layout). Running it from all three accounts needs a location teammates can read.
+3. Phase 6: task subset (no `level` spread possible), pilot timing, manifest in three shards.
