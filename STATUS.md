@@ -77,7 +77,7 @@ Nothing is running. No jobs are queued.
 - **`parallel.json` has 96 tasks, all `level` 1, all with 5 `init_rooms` entries.** The Phase 6 plan to spread the 24-task subset across `level` cannot apply; the spread has to come from `goal_item_total`, `goal_item_kind_count` and goal rooms.
 - **Moved from project space to scratch on 2026-11-15 (Bryant's decision).** Data was copied; the three conda envs were rebuilt
   (conda envs break when moved); both smoke tests were rerun from scratch and pass (jobs 8858952 and 8858953);
-  then `/projects/e32706/embodied_mas` was deleted. Job numbers in the Phase 1 and 2 sections below refer to the first runs in project space.
+  then `/projects/e32706/embodied_mas` was deleted. Job numbers in the Phase 1 and 2 sections above refer to the first runs in project space.
 - **Teammates cannot read `/scratch/rsr7518`** (owner-only, group `p32859`, which `rsr7518` is not in). Phase 5 ("runs from all three accounts") needs a shared location or one copy per teammate.
 - **Scratch is not permanent.** Quest deletes scratch files that go unused (check the current policy); copy results worth keeping elsewhere.
 - `/projects/e32706` is nearly full (1864 / 2048 GB, 91%, on 2026-11-15) and shared with about 20 users; one reason not to use it.
