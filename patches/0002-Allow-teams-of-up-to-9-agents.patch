@@ -1,0 +1,87 @@
+From 4beb79054c359596945db6f2b75f3b4398ce6c76 Mon Sep 17 00:00:00 2001
+From: brybranmuffin <bryantbettencourt2026@u.northwestern.edu>
+Date: Sun, 15 Nov 2026 15:30:19 -0600
+Subject: [PATCH 2/2] Allow teams of up to 9 agents
+
+Why: the scaling study needs teams of 7 and 9, but the data capped teams at 5.
+- profile_sample.json: add agents 5-8, continuing the file's existing Male10/Male6 character models.
+- Scene.initialize: when a task's init_rooms list is shorter than the team, reuse the task's own
+  starting rooms in order. The task file is not modified, and teams of 5 or fewer are unaffected.
+- Game.reset: raise an error if more agents are requested than the profile defines. Before this,
+  the team was silently cut down to the profile size.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+---
+ data/chars/profile_sample.json | 20 ++++++++++++++++++++
+ eval/main.py                   |  5 +++++
+ eval/scene/scene.py            |  8 +++++++-
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/data/chars/profile_sample.json b/data/chars/profile_sample.json
+index 6135359..59045bc 100644
+--- a/data/chars/profile_sample.json
++++ b/data/chars/profile_sample.json
+@@ -23,5 +23,25 @@
+     "name": "Agent 4",
+     "type": "adult",
+     "3d_model": "Chars/Male6"
++  },
++  "5": {
++    "name": "Agent 5",
++    "type": "adult",
++    "3d_model": "Chars/Male10"
++  },
++  "6": {
++    "name": "Agent 6",
++    "type": "adult",
++    "3d_model": "Chars/Male6"
++  },
++  "7": {
++    "name": "Agent 7",
++    "type": "adult",
++    "3d_model": "Chars/Male10"
++  },
++  "8": {
++    "name": "Agent 8",
++    "type": "adult",
++    "3d_model": "Chars/Male6"
+   }
+ }]
+diff --git a/eval/main.py b/eval/main.py
+index f7eeb97..3847620 100644
+--- a/eval/main.py
++++ b/eval/main.py
+@@ -145,6 +145,11 @@ class Game:
+         # 根据 num_agents 筛选 profile
+         filtered_profile = {k: v for k, v in profile.items() if int(k) < num_agents}
+         self.profile = filtered_profile
++        if len(filtered_profile) < num_agents:
++            # Without this check a team larger than the profile file silently runs with fewer agents.
++            raise ValueError(
++                f"{num_agents} agents requested but the profile defines only {len(filtered_profile)}."
++            )
+         self.num_agents = len(self.profile)
+         
+         models = _resolve_agent_models(
+diff --git a/eval/scene/scene.py b/eval/scene/scene.py
+index 5ec0bbb..e20910f 100644
+--- a/eval/scene/scene.py
++++ b/eval/scene/scene.py
+@@ -117,7 +117,13 @@ class Scene:
+     def initialize(self, task, profile):
+         self.task = task
+ 
+-        self.init_rooms = task['init_rooms']
++        # Teams larger than the task's init_rooms list (5 entries in the released tasks) reuse the
++        # task's own starting rooms in order, so agent 5 starts where agent 0 does, agent 6 where
++        # agent 1 does, and so on. The task file itself is not modified.
++        self.init_rooms = list(task['init_rooms'])
++        if self.init_rooms and len(profile) > len(self.init_rooms):
++            base_rooms = list(self.init_rooms)
++            self.init_rooms = [base_rooms[i % len(base_rooms)] for i in range(len(profile))]
+         self.task_goal = task['task_goal']
+         self.goal_class = task['goal_class']
+         self.task_name = task['task_name']
+-- 
+2.43.7
+
