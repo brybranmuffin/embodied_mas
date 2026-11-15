@@ -41,9 +41,8 @@ for url in https://api.openai.com https://huggingface.co https://github.com; do
 done
 
 # Use the system NVIDIA ICD if present; otherwise write our own (handoff fallback 1).
-ICD=/usr/share/vulkan/icd.d/nvidia_icd.json
-[ -f "$ICD" ] || ICD=/etc/vulkan/icd.d/nvidia_icd.json
-if [ ! -f "$ICD" ]; then
+ICD=$(ls /usr/share/vulkan/icd.d/nvidia_icd*.json /etc/vulkan/icd.d/nvidia_icd*.json 2>/dev/null | head -1)
+if [ -z "$ICD" ]; then
   ICD=$OUT/nvidia_icd.json
   echo '{"file_format_version":"1.0.0","ICD":{"library_path":"libGLX_nvidia.so.0","api_version":"1.3.0"}}' > "$ICD"
   echo "no system NVIDIA ICD; wrote $ICD"
@@ -51,15 +50,21 @@ fi
 export VK_ICD_FILENAMES=$ICD
 echo "VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
 
-if ! command -v Xvfb >/dev/null; then
-  echo "FAIL: Xvfb is not installed on this node (next: container fallback)"
-  exit 2
-fi
+# Quest GPU nodes have no Xvfb, so we use our own copy (conda-forge build plus one CentOS 7 library).
+XVFB_ENV=$ROOT/envs/xvfb
+XVFB_BIN=$XVFB_ENV/x86_64-conda-linux-gnu/sysroot/usr/bin/Xvfb
+echo "== system xkb =="; ls -d /usr/bin/xkbcomp /usr/share/X11/xkb 2>&1
 
 echo "== starting Xvfb :$D =="
-Xvfb :$D -screen 0 1024x768x24 > "$OUT/xvfb.log" 2>&1 &
+LD_LIBRARY_PATH=$XVFB_ENV/compat PATH=$XVFB_ENV/bin:$PATH \
+  "$XVFB_BIN" :$D -screen 0 1024x768x24 -nolisten tcp -xkbdir "$XVFB_ENV/share/X11/xkb" > "$OUT/xvfb.log" 2>&1 &
+XVFB_PID=$!
 export DISPLAY=:$D
-sleep 3
+for i in $(seq 1 20); do [ -S /tmp/.X11-unix/X$D ] && break; sleep 1; done
+if ! kill -0 $XVFB_PID 2>/dev/null || [ ! -S /tmp/.X11-unix/X$D ]; then
+  echo "FAIL: Xvfb did not start"; cat "$OUT/xvfb.log"; exit 2
+fi
+echo "Xvfb is up"; cat "$OUT/xvfb.log"
 
 echo "== starting simulator on port $PORT =="
 "$SIM_BIN" -batchmode -http-port=$PORT -force-device-index 0 -logFile "$OUT/unity.log" &

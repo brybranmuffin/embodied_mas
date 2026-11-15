@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phase 0 nearly complete; vLLM env and model weights still in progress)
+Last updated: 2026-11-15 (Phases 0 and 1 pass; Phase 2 serving test submitted)
 
 ## Where everything is
 
@@ -10,10 +10,11 @@ Last updated: 2026-11-15 (Phase 0 nearly complete; vLLM env and model weights st
 | `<SHARED_ROOT>` | `/projects/e32706/embodied_mas` (group `e32706`, mode 2770) |
 | MECoBench clone | `<SHARED_ROOT>/MECoBench`, upstream commit `219d429`, no local changes yet |
 | MECoBench env (Python 3.10) | `<SHARED_ROOT>/envs/mecobench` |
-| vLLM env (Python 3.12) | `<SHARED_ROOT>/envs/vllm` (install in progress) |
+| vLLM env (Python 3.12) | `<SHARED_ROOT>/envs/vllm` (vLLM 0.33.0, torch 2.14.0, 8.3 GB) |
+| Xvfb (our own copy; Quest has none) | `<SHARED_ROOT>/envs/xvfb` |
 | Simulator binary (`MECOBENCH_SIMULATOR_BIN`) | `<SHARED_ROOT>/simulator/linux_simulator/linux.x86_64` |
 | Full task file | `<SHARED_ROOT>/MECoBench/data/task/parallel.json` |
-| Model cache (`HF_HOME`) | `<SHARED_ROOT>/hf_cache` (empty so far) |
+| Model cache (`HF_HOME`) | `<SHARED_ROOT>/hf_cache` (`Qwen/Qwen3-VL-8B-Instruct`, 17 GB) |
 | `<RESULTS_ROOT>` (proposed) | `<SHARED_ROOT>/results` |
 | Install logs and the simulator zip | `<SHARED_ROOT>/downloads` |
 
@@ -27,10 +28,29 @@ Last updated: 2026-11-15 (Phase 0 nearly complete; vLLM env and model weights st
 - **Tasks:** `parallel.json` downloaded (57 MB, sha256 matches the Hugging Face LFS hash `aaaa5f70…`).
 - **Model ID verified:** `Qwen/Qwen3-VL-8B-Instruct` exists on Hugging Face.
 
+- **vLLM env** and **Qwen3-VL-8B weights** installed and downloaded (snapshot `0c351dd`).
+
+### Phase 1 — rendering smoke test: PASS (job 8854145, node `qgpu2005`, A100 80 GB)
+
+- One simulator started under our Xvfb, rendered through Vulkan on the NVIDIA GPU, and returned camera images.
+  `reset(0)` took 8.0 s; two 640x480 images took 3.1 s; the scene has 79 cameras; the simulator used 1.6 GB of GPU memory.
+- Images saved in `<SHARED_ROOT>/results/phase1/job_8854145/` and checked by eye (a furnished kitchen/dining room, not black).
+- Run it again with `sbatch jobs/phase1_render_smoke.sbatch` (20 minutes, 1 GPU).
+
+What it took (attempt log):
+
+1. Job 8852391 failed in 4 s: **Xvfb is not installed on Quest GPU nodes.**
+2. Fix: Xvfb installed without root into `<SHARED_ROOT>/envs/xvfb` from conda-forge
+   (`xorg-x11-server-xvfb-cos7-x86_64`, plus `xkbcomp` and `xkeyboard-config`). It needs `libcrypto.so.10`,
+   which Quest does not have, so `envs/xvfb/compat/` holds that one library from the CentOS 7 package
+   `openssl-libs-1.0.2k-19.el7` (from vault.centos.org; sha256 matches the repository metadata).
+   Start it with `LD_LIBRARY_PATH=<SHARED_ROOT>/envs/xvfb/compat` set for Xvfb only. No container was needed.
+3. The NVIDIA Vulkan ICD file exists but is named `/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json`,
+   not `nvidia_icd.json` as `src/start_unity_multi_8gpu.sh` assumes. Always set `VK_ICD_FILENAMES` ourselves.
+
 ## In progress
 
-- vLLM env install (`<SHARED_ROOT>/downloads/env_vllm.log`).
-- Qwen3-VL-8B weights download into `<SHARED_ROOT>/hf_cache` (starts after the vLLM env finishes).
+- Phase 2 serving test, job 8854415 (`jobs/phase2_serve_smoke.sbatch`, 30 minutes, 1 GPU): serve the 8B model with vLLM and send one image chat completion.
 
 ## Findings worth knowing
 
@@ -38,7 +58,11 @@ Last updated: 2026-11-15 (Phase 0 nearly complete; vLLM env and model weights st
 - **The shared root is open to all of `e32706`** (about 20 users), not only our three accounts. Nothing narrower is possible with Quest group permissions there.
 - `/projects/e32706` was at 1736 / 2048 GB (84%) before we started; we share that quota with the rest of the allocation.
 - Slurm lists a second account, `p53299`, for `rsr7518`, but it has no project folder and `checkproject` says it does not exist. Not used.
-- Quest login node checks: `conda`/`mamba` available; `Xvfb` not on the login node (to check on a GPU node in Phase 1); `singularity` needs `module load`; `gh` CLI not installed.
+- **Compute nodes have outbound internet:** from a GPU node, `huggingface.co` and `github.com` return 200 and `api.openai.com` answers (HTTP 421 to a bare request, so the host is reachable). The OpenAI resolver option is technically possible.
+- GPU nodes report NVIDIA driver 610.43.02 (the handoff says 570.86.15).
+- The `gengpu` queue estimate was about 15 hours, but single-GPU 20-minute jobs started within minutes.
+- Quest login node: `conda`/`mamba` available; `singularity` needs `module load`; `gh` CLI not installed.
+- This shell cannot push to GitHub (no saved HTTPS login; the Quest SSH key is not registered). Bryant pushes from VS Code.
 - `gengpu`: 48 h limit; nodes with A100 (1, 2 or 4 per node) and H100 (4 per node).
 
 ## Decisions made by humans
@@ -57,10 +81,8 @@ Last updated: 2026-11-15 (Phase 0 nearly complete; vLLM env and model weights st
 3. **MECoBench changes:** where should our patched MECoBench be pushed (a fork under `brybranmuffin`, or local commits in the shared clone only)?
 4. **Who to contact when blocked.**
 
-## No Slurm jobs have been submitted yet.
-
 ## Next steps
 
-1. Finish the vLLM env and the 8B weights download.
-2. Phase 1 rendering smoke test on one `gengpu` node (highest risk): Xvfb, Vulkan ICD, one simulator, one saved camera image.
-3. Phase 2: serve the 8B model with vLLM and test an image chat completion.
+1. Read the Phase 2 result; fix vLLM flags if serving failed.
+2. Get the resolver decision (open question 1), then Phase 3: first end-to-end run on `data/examples/parallel_5.json` with 2 agents.
+3. Phase 4 patches (seed, teams of 7 and 9) in the shared MECoBench clone.
