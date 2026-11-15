@@ -1,6 +1,6 @@
 # STATUS
 
-Last updated: 2026-11-15 (Phase 3 first end-to-end run passes; 20-task reproduction run submitted)
+Last updated: 2026-11-15 (Phases 0-3 pass; next is Phase 4 patches)
 
 ## Where everything is
 
@@ -90,10 +90,20 @@ embedding filter off, no OpenAI calls. Script: `jobs/run_eval.sbatch` (all setti
 - `sbatch --export=VAR=a,b,c` breaks on comma lists. Set variables in the shell before `sbatch` instead:
   `VWAH_TASK_ID_LIST=0,5,10 sbatch jobs/run_eval.sbatch`.
 
+### Phase 3 — rough reproduction on the full parallel set (job 8863394, 2 H100s, 17 min 20 s total)
+
+- 20 tasks from `parallel.json` (indices 0, 5, ..., 95), 2 agents, `base`, 30 rounds, 10 simulators.
+- **Success rate 11/20 = 0.55; mean goal completion 79%.** The paper reports about 0.458 for this model with 2 agents on all 96 tasks.
+  With only 20 tasks the uncertainty is roughly plus or minus 0.2, so this is consistent with the paper, not evidence of a difference.
+- Setup differences from the paper: resolver is the local 8B model instead of `gpt-5-mini`; embedding filter off; one seed; 20 of 96 tasks.
+- No case had an error. Mean 300k tokens per episode (agents plus resolver).
+- Timing: the 20 episodes took 931 s with 10 simulators against one vLLM server, so about 47 s of wall time per episode at this parallelism.
+- GPU memory: 10 simulators used 18 GB on GPU 1.
+- Results: `<SHARED_ROOT>/results/phase3_repro20/job_8863394/`.
+
 ## In progress
 
-- Job 8863394 (`phase3_repro20`): 20 tasks from the full `parallel.json` (indices 0, 5, ..., 95), same settings, 10 simulators,
-  90-minute limit. To compare with the paper's 0.458 success rate for this model with 2 agents.
+Nothing is running. No jobs are queued.
 
 ## Findings worth knowing
 
@@ -131,6 +141,6 @@ embedding filter off, no OpenAI calls. Script: `jobs/run_eval.sbatch` (all setti
 
 ## Next steps
 
-1. Read the 20-task result and report the success rate next to the paper's 0.458, with the setup differences (local resolver, no embedding filter).
-2. Phase 4 patches (seed, teams of 7 and 9) in the MECoBench clone. Deadline for the 7/9 decision: Nov 18.
-3. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the results path layout).
+1. Phase 4 patches (seed, teams of 7 and 9) in the MECoBench clone. Deadline for the 7/9 decision: Nov 18.
+2. Phase 5: turn `jobs/run_eval.sbatch` into `jobs/run_cell.sbatch` (adds `cell.json` and the results path layout).
+3. Phase 6: task subset, pilot timing, manifest.
