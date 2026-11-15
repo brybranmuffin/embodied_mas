@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[co]
+*.egg-info/
+.venv/
+venv/
+envs/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Secrets (never commit API keys)
+.env
+.env.*
+!.env.example
+
+# Upstream code, simulator, models and task data (kept outside this repo's history)
+MECoBench/
+simulator/
+simulator_linux*/
+hf_cache/
+.cache/
+.huggingface/
+data/
+*.zip
+*.tar
+*.gz
+*.safetensors
+*.bin
+*.pt
+*.sif
+
+# Run outputs and logs
+results/
+logs/
+*.log
+slurm-*.out
+
+.DS_Store
